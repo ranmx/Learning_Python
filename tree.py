@@ -422,6 +422,7 @@ class GeneralTree(LinkTree):
         print mark, p.element(), ' ',
 
     def _bendhandle(self):
+        self.d_g = 0
         print ''
         pass
 
