@@ -163,13 +163,15 @@ class LinkTree(TreeBase):
 
     def _broadfirst(self):
         traversal_list = []
-        traversal_list.append(self.root())
+        d = 0
+        traversal_list.append([d, self.root()])
         while len(traversal_list) != 0:
-            p = traversal_list.pop()
-            self._bprehandle(p)
+            d, p = traversal_list.pop(0)
+            self._bprehandle(p, d)
             for child in self.children(p):
-                traversal_list.append(child)
-            self._bposthandle(p)
+                traversal_list.append([d+1, child])
+            self._bposthandle(p, d)
+        self._bendhandle()
 
     def _dprehandle(self, p, d, path):
         pass
@@ -178,10 +180,14 @@ class LinkTree(TreeBase):
         return None
         pass
 
-    def _bprehandle(self, p):
+    def _bprehandle(self, p, d):
         pass
 
-    def _bposthandle(self, p):
+    def _bposthandle(self, p, d):
+        return None
+        pass
+
+    def _bendhandle(self):
         return None
         pass
 
@@ -405,6 +411,20 @@ class GeneralTree(LinkTree):
         mark = '.'.join(map(str, path))
         print '    '*d, "(", mark, ")", p.element()
 
+    d_g = 0
+
+    def _bprehandle(self, p, d):
+        if d != self.d_g:
+            self.d_g = d
+            mark = '\n'
+        else:
+            mark = ''
+        print mark, p.element(), ' ',
+
+    def _bendhandle(self):
+        print ''
+        pass
+
 def test_binary_tree():
     bt = BinaryTree()
     root = bt.add_root(5)
@@ -472,6 +492,9 @@ def test_general_tree():
 
     print "-"*40
     gt.positions()
+    print "-"*40
+    print "broad first"
+    gt.positions(broad_first=True)
 
     gt1 = GeneralTree()
     root = gt1.add_root(5)
@@ -503,3 +526,7 @@ def test_general_tree():
     print "-"*40
     print "delete gig", gt._delete(delete)
     gt.positions()
+    print "-"*40
+    print "broad first"
+    gt.positions(broad_first=True)
+
