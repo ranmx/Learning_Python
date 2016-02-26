@@ -3,17 +3,6 @@ class TreeBase(object):
         self._size = 0
         self._root = None
 
-    class Position(object):
-
-        def element(self):
-            raise NotImplementedError
-
-        def __eq__(self, other):
-            raise NotImplementedError
-
-        def __ne__(self, other):
-            return not (self == other)
-
     def root(self):
         raise NotImplementedError
 
@@ -67,7 +56,7 @@ class LinkTree(TreeBase):
     def __init__(self):
         super(LinkTree, self).__init__()
 
-    class Position(TreeBase.Position):
+    class Position(object):
         __slots__ = 'container', 'node'
 
         def __init__(self, container, node):
@@ -79,6 +68,15 @@ class LinkTree(TreeBase):
 
         def __eq__(self, other):
             return (type(self) == type(other)) and (self.element() == other.element())
+
+        def __ne__(self, other):
+            return not (self == other)
+
+    class Node(object):
+        __slots__ = ''
+
+        def __init__(self):
+            raise NotImplementedError
 
     def _make_position(self, node):
         if not isinstance(node, self.Node):
@@ -119,36 +117,6 @@ class LinkTree(TreeBase):
         node = self._is_valid(p)
         node._element = element
         return p
-
-    def is_leaf(self, p):
-        return 0 == self.num_children(p)
-
-    def is_empty(self):
-        return self._size == 0
-
-    def __len__(self):
-        return self._size
-
-    def depth(self, p):
-        if self.is_root(p):
-            return 0
-        else:
-            parent = self.parent(p)
-            depth = self.depth(parent) + 1
-            return depth
-
-    def _height(self, p):
-        if self.is_leaf(p):
-            height = 0
-        else:
-            height = 1 + max(self._height(c) for c in self.children(p))
-        return height
-
-    def height(self, p=None):
-        if p is None:
-            return self._height(self.root())
-        else:
-            return self._height(p)
 
     def _deepfirst(self, p, d, path):
         self._is_valid(p)
@@ -198,18 +166,9 @@ class LinkTree(TreeBase):
             self._broadfirst()
 
 
-class BiTreeBase(LinkTree):
+class BiTreeBase(TreeBase):
     def __init__(self):
         super(BiTreeBase, self).__init__()
-
-    class Node(object):
-        __slots__= '_element', '_parent', '_left', '_right'
-
-        def __init__(self, element, parent=None, left=None, right=None):
-            self._element = element
-            self._parent = parent
-            self._left = left
-            self._right = right
 
     def left(self, p):
         raise NotImplementedError
@@ -239,9 +198,18 @@ class BiTreeBase(LinkTree):
         return count
 
 
-class BinaryTree(BiTreeBase):
+class BinaryTreeLink(BiTreeBase, LinkTree):
     def __init__(self):
-        super(BinaryTree, self).__init__()
+        super(BinaryTreeLink, self).__init__()
+
+    class Node(object):
+        __slots__n = '_element', '_parent', '_left', '_right'
+
+        def __init__(self, element, parent=None, left=None, right=None):
+            self._element = element
+            self._parent = parent
+            self._left = left
+            self._right = right
 
     def left(self, p):
         node = self._is_valid(p)
@@ -348,13 +316,106 @@ class BinaryTree(BiTreeBase):
         mark = '.'.join(path)
         print d*'  ', '(', mark, ')', p.element()
 
-    def positions(self):
+    def positions(self, broad_first=False):
         return self._inorder(self.root(), 0, [1])
 
 
-class GeneralTree(LinkTree):
+class BinaryTreeArray(TreeBase, BiTreeBase):
     def __init__(self):
-        super(GeneralTree, self).__init__()
+        self._list = list()
+        self._size = len(self._list)
+        super(BinaryTreeArray, self).__init__()
+
+    class Item(object):
+        __slots__ = "_value"
+
+        def __init__(self, value, index):
+            self._value = value
+            self._index = index
+
+        def value(self):
+            return self._value
+
+        def index(self):
+            return self._index
+
+        def __eq__(self, other):
+            return type(self) == type(other) and self.value() == other.value()
+
+        def __ne__(self, other):
+            return not self.__eq__(other)
+
+    def root(self):
+        if not self.is_empty():
+            return self._list[0]
+        else:
+            return None
+
+    def _is_valid_location(self, j):
+        if 0 <= j < self._size:
+            if self._list[j].index() == j:
+                return self._list[j]
+            else:
+                ValueError('Index not match')
+        else:
+            raise IndexError('Not a valid index')
+
+    # j is the index in the list
+    # return an index
+    def parent_index(self, j):
+        item = self._is_valid_location(j)
+        if self.is_root(item):
+            return None
+        else:
+            return (j-1)/2
+
+    def parent(self, j):
+        parent_index = self.parent_index(j)
+        if parent_index:
+            return self._list[parent_index]
+        else:
+            return None
+
+    def add_root(self, element):
+        if not self.is_empty():
+            raise ValueError('The tree already has a root')
+        else:
+            item = self.Item(element, 0)
+            self._list[0] = item
+            return item
+
+    def _deepfirst(self, j, d, path):
+        self._is_valid_location(j)
+        self._dprehandle(j, d, path)
+        path.append(0)
+        for child_index in self.children_index(j):
+            path[-1] += 1
+            self._deepfirst(child_index, d+1, path)
+        path.pop()
+        self._dposthandle(j, d, path)
+
+
+    def _dprehandle(self, p, d, path):
+        pass
+
+    def _dposthandle(self, p, d, path):
+        return None
+        pass
+
+    def _bprehandle(self, p, d):
+        pass
+
+    def _bposthandle(self, p, d):
+        return None
+        pass
+
+    def _bendhandle(self):
+        return None
+        pass
+
+class GeneralTreeLink(LinkTree):
+    def __init__(self):
+        super(GeneralTreeLink, self).__init__()
 
     class Node(object):
         __slots__ = '_element', '_parent', '_children'
@@ -399,7 +460,7 @@ class GeneralTree(LinkTree):
 
     def attach(self, p, tree):
         node = self._is_valid(p)
-        if not (isinstance(tree, BinaryTree) or isinstance(tree, GeneralTree)):
+        if not (isinstance(tree, BinaryTreeLink) or isinstance(tree, GeneralTreeLink)):
             raise TypeError('There must be a tree')
         node._children.append(tree._root)
         tree._root._parent = node
@@ -426,16 +487,19 @@ class GeneralTree(LinkTree):
         print ''
         pass
 
+
+
+
 def test_binary_tree():
-    bt = BinaryTree()
+    bt = BinaryTreeLink()
     root = bt.add_root(5)
     bt_left = bt.add_left(root, 3)
     bt_right = bt.add_right(root, 7)
-    bt1 = BinaryTree()
+    bt1 = BinaryTreeLink()
     root1 = bt1.add_root(15)
     bt1.add_left(root1, 13)
     bt1.add_right(root1, 17)
-    bt2 = BinaryTree()
+    bt2 = BinaryTreeLink()
     root2 = bt2.add_root(25)
     bt2.add_left(root2, 23)
     bt2.add_right(root2, 27)
@@ -472,7 +536,7 @@ def test_binary_tree():
 
 
 def test_general_tree():
-    gt = GeneralTree()
+    gt = GeneralTreeLink()
     root = gt.add_root(5)
     jarry = gt.add_child(root, 1)
     kate = gt.add_child(root, 3)
@@ -497,7 +561,7 @@ def test_general_tree():
     print "broad first"
     gt.positions(broad_first=True)
 
-    gt1 = GeneralTree()
+    gt1 = GeneralTreeLink()
     root = gt1.add_root(5)
     jarry = gt1.add_child(root, 1)
     kate = gt1.add_child(root, 3)
@@ -531,3 +595,5 @@ def test_general_tree():
     print "broad first"
     gt.positions(broad_first=True)
 
+
+test_general_tree()
