@@ -73,7 +73,6 @@ class LinkTree(TreeBase):
             return not (self == other)
 
     class Node(object):
-        __slots__ = ''
 
         def __init__(self):
             raise NotImplementedError
@@ -320,14 +319,13 @@ class BinaryTreeLink(BiTreeBase, LinkTree):
         return self._inorder(self.root(), 0, [1])
 
 
-class BinaryTreeArray(TreeBase, BiTreeBase):
+class BinaryTreeArray(BiTreeBase):
     def __init__(self):
         self._list = list()
-        self._size = len(self._list)
         super(BinaryTreeArray, self).__init__()
 
     class Item(object):
-        __slots__ = "_value"
+        __slots__ = "_value", '_index'
 
         def __init__(self, value, index):
             self._value = value
@@ -352,13 +350,18 @@ class BinaryTreeArray(TreeBase, BiTreeBase):
             return None
 
     def _is_valid_location(self, j):
-        if 0 <= j < self._size:
+        if 0 <= j < len(self._list):
             if self._list[j].index() == j:
                 return self._list[j]
             else:
                 ValueError('Index not match')
         else:
+            print "index =", j
+            print "size =", len(self._list)
             raise IndexError('Not a valid index')
+
+    def __len__(self):
+        return len(self._list)
 
     # j is the index in the list
     # return an index
@@ -369,31 +372,125 @@ class BinaryTreeArray(TreeBase, BiTreeBase):
         else:
             return (j-1)/2
 
-    def parent(self, j):
+    def parent(self, item):
+        j = item.index()
         parent_index = self.parent_index(j)
         if parent_index:
             return self._list[parent_index]
         else:
             return None
 
+    def left_index(self, j):
+        self._is_valid_location(j)
+        return j*2+1
+
+    def left(self, item):
+        j = item.index()
+        k = self.left_index(j)
+        node = self._is_valid_location(k)
+        return node
+
+    def right_index(self, j):
+        self._is_valid_location(j)
+        return j*2+2
+
+    def right(self, item):
+        j = item.index()
+        k = self.right_index(j)
+        node = self._is_valid_location(k)
+        return node
+
     def add_root(self, element):
         if not self.is_empty():
             raise ValueError('The tree already has a root')
         else:
             item = self.Item(element, 0)
-            self._list[0] = item
+            self._list.insert(0, item)
             return item
+
+    def add_left(self, item, element):
+        j = item.index()
+        left_index = self.left_index(j)
+        try:
+            self._is_valid_location(left_index)
+        except IndexError:
+            item = self.Item(element, left_index)
+            self._list.insert(left_index, item)
+            return item
+        raise ValueError('The left node already exists')
+
+    def add_right(self, item, element):
+        j = item.index()
+        right_index = self.right_index(j)
+        try:
+            self._is_valid_location(right_index)
+        except IndexError:
+            item = self.Item(element, right_index)
+            self._list.insert(right_index, item)
+            return item
+        raise ValueError('The left node already exists')
+
+    def children_index(self, j):
+        self._is_valid_location(j)
+        try:
+            yield self.left_index(j)
+        except IndexError:
+            yield None
+        try:
+            yield self.right_index(j)
+        except IndexError:
+            yield None
+
+    def children(self, item):
+        j = item.index()
+        try:
+            yield self.left(j)
+        except IndexError:
+            pass
+        try:
+            yield self.right(j)
+        except IndexError:
+            pass
+
+    def num_children(self, item):
+        j = item.index()
+        count = 0
+        try:
+            self._is_valid_location(self.left_index(j))
+            count += 1
+            try:
+                self._is_valid_location(self.right_index(j))
+                count += 1
+            except IndexError:
+                pass
+        except IndexError:
+            pass
+        finally:
+            return count
+
+    def sibling(self, item):
+        j = item.index()
+        item = self._is_valid_location(j)
+        parent = self.parent(item)
+        if parent is not None:
+            if self.num_children(j) == 2:
+                if self.left_index(parent.index()) == j:
+                    return self.right(parent)
+                else:
+                    return self.left(parent)
+            else:
+                return None
 
     def _deepfirst(self, j, d, path):
         self._is_valid_location(j)
         self._dprehandle(j, d, path)
         path.append(0)
-        for child_index in self.children_index(j):
+        for child in self.children(j):
+            child_index = child.index()
             path[-1] += 1
             self._deepfirst(child_index, d+1, path)
         path.pop()
         self._dposthandle(j, d, path)
-
 
     def _dprehandle(self, p, d, path):
         pass
@@ -412,6 +509,7 @@ class BinaryTreeArray(TreeBase, BiTreeBase):
     def _bendhandle(self):
         return None
         pass
+
 
 class GeneralTreeLink(LinkTree):
     def __init__(self):
@@ -596,4 +694,28 @@ def test_general_tree():
     gt.positions(broad_first=True)
 
 
-test_general_tree()
+def test_binary_array_tree():
+    bt = BinaryTreeArray()
+    root = bt.add_root(5)
+    bt_left = bt.add_left(root, 3)
+    bt_right = bt.add_right(root, 7)
+    bt1 = BinaryTreeArray()
+    root1 = bt1.add_root(15)
+    bt1.add_left(root1, 13)
+    bt1.add_right(root1, 17)
+    bt2 = BinaryTreeArray()
+    root2 = bt2.add_root(25)
+    bt2.add_left(root2, 23)
+    bt2.add_right(root2, 27)
+    print "-"*40
+    print "list is",
+    for items in bt._list:
+        print items.value()
+    # print "-"*40
+    # bt.positions()
+    # print "-"*40
+    # print "depth of the root's left node", bt.depth(bt_root_left)
+    # print "-"*40
+    # print "height of the root's left node", bt.height(bt_root_left)
+
+test_binary_array_tree()
