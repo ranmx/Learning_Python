@@ -356,8 +356,6 @@ class BinaryTreeArray(BiTreeBase):
             else:
                 ValueError('Index not match')
         else:
-            print "index =", j
-            print "size =", len(self._list)
             raise IndexError('Not a valid index')
 
     def __len__(self):
@@ -365,6 +363,9 @@ class BinaryTreeArray(BiTreeBase):
 
     # j is the index in the list
     # return an index
+    def is_empty(self):
+        return len(self._list) == 0
+
     def parent_index(self, j):
         item = self._is_valid_location(j)
         if self.is_root(item):
@@ -375,7 +376,7 @@ class BinaryTreeArray(BiTreeBase):
     def parent(self, item):
         j = item.index()
         parent_index = self.parent_index(j)
-        if parent_index:
+        if parent_index is not None:
             return self._list[parent_index]
         else:
             return None
@@ -452,6 +453,23 @@ class BinaryTreeArray(BiTreeBase):
         except IndexError:
             pass
 
+    # def num_children(self, item):
+    #     j = item.index()
+    #     count = 0
+    #     try:
+    #         self._is_valid_location(self.left_index(j))
+    #         count += 1
+    #         try:
+    #             self._is_valid_location(self.right_index(j))
+    #             count += 1
+    #         except IndexError:
+    #             pass
+    #     except IndexError:
+    #         pass
+    #     finally:
+    #         print "count", count
+    #         return count
+
     def num_children(self, item):
         j = item.index()
         count = 0
@@ -473,13 +491,17 @@ class BinaryTreeArray(BiTreeBase):
         item = self._is_valid_location(j)
         parent = self.parent(item)
         if parent is not None:
-            if self.num_children(j) == 2:
+            if self.num_children(parent) == 2:
                 if self.left_index(parent.index()) == j:
                     return self.right(parent)
                 else:
                     return self.left(parent)
             else:
                 return None
+
+    def positions(self):
+        for item in self._list:
+            yield item
 
     def _deepfirst(self, j, d, path):
         self._is_valid_location(j)
@@ -584,8 +606,6 @@ class GeneralTreeLink(LinkTree):
         self.d_g = 0
         print ''
         pass
-
-
 
 
 def test_binary_tree():
@@ -699,23 +719,32 @@ def test_binary_array_tree():
     root = bt.add_root(5)
     bt_left = bt.add_left(root, 3)
     bt_right = bt.add_right(root, 7)
-    bt1 = BinaryTreeArray()
-    root1 = bt1.add_root(15)
-    bt1.add_left(root1, 13)
-    bt1.add_right(root1, 17)
-    bt2 = BinaryTreeArray()
-    root2 = bt2.add_root(25)
-    bt2.add_left(root2, 23)
-    bt2.add_right(root2, 27)
     print "-"*40
-    print "list is",
+    print "list is"
     for items in bt._list:
         print items.value()
-    # print "-"*40
-    # bt.positions()
-    # print "-"*40
-    # print "depth of the root's left node", bt.depth(bt_root_left)
-    # print "-"*40
-    # print "height of the root's left node", bt.height(bt_root_left)
-
-test_binary_array_tree()
+    print 'size of bt:', len(bt)
+    print "-"*40
+    print 'is empty:', bt.is_empty()
+    print "-"*40
+    print 'root of bt:', bt.root().value()
+    print "-"*40
+    bt_root_left = bt.left(root)
+    print 'left node of root:', bt_root_left.value()
+    print "-"*40
+    bt_root_right = bt.right(root)
+    print 'right node of root:', bt_root_right.value()
+    print "-"*40
+    bt_root_parent = bt.parent(root)
+    print 'parent of root:', bt_root_parent
+    print "-"*40
+    bt_root_left_partent = bt.parent(bt_root_left)
+    print 'parent of the left node of root:', bt_root_left_partent.value()
+    print "-"*40
+    bt.positions()
+    print "-"*40
+    print "depth of the root's left node", bt.depth(bt_root_left)
+    print "-"*40
+    print "height of the root's left node", bt.height(bt_root_left)
+    print "-"*40
+    print "sibling root's left node", bt.sibling(bt_root_left).value()
