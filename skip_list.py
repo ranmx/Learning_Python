@@ -24,18 +24,9 @@ class SkipList(object):
         lvl_0_ninf._right = lvl_0_pinf
         lvl_0_pinf._left = lvl_0_ninf
 
-        lvl_1_ninf = self._def_ninf()
-        lvl_1_pinf = self._def_pinf()
-        lvl_1_ninf._right = lvl_1_pinf
-        lvl_1_pinf._left = lvl_1_ninf
-
-        lvl_0_ninf._up = lvl_1_ninf
-        lvl_1_ninf._down = lvl_0_ninf
-        lvl_0_pinf._up = lvl_1_pinf
-        lvl_1_pinf._down = lvl_0_pinf
-
-        self.list = [[lvl_0_ninf, lvl_0_pinf]]
-        self.left_up = lvl_1_ninf
+        self.list = [[]]
+        self.left_up = lvl_0_ninf
+        self.right_up = lvl_0_pinf
         self._n = 0
         self._h = 0
 
@@ -69,43 +60,48 @@ class SkipList(object):
         item = self.Item(value)
         find, pointer = self[value]
         if find is True:
-            pointer._value = value
-            while pointer._up is not None:
-                if pointer._up == self.left_up:
-
-                    new_ninf = self._def_ninf()
-                    new_pinf = self._def_pinf()
-                    new_ninf._right = new_pinf
-                    new_pinf._left = new_ninf
-
-                    new_ninf._down = self.left_up
-                    self.left_up._up = new_ninf
-                    new_pinf._down = self.left_up._right
-                    self.left_up._right._up = new_pinf
-                    self.left_up = new_ninf
-
-                    self._h += 1
-
-                pointer = pointer._up
-                pointer._value = value
+            print "The value is already exist"
         else:
             pointer_r = pointer._right
             self._n += 1
+            print "n = ", self._n
+            self._h = 0
 
             while True:
                 item._left = pointer
                 item._right = pointer_r
                 pointer._right = item
                 pointer_r._left = item
+                self.list[self._h].append(item._value)
 
                 build_up = random.randrange(2)
                 if build_up == 0:
-                    break
+                    return
                 else:
-                    if pointer._up is not None:
-                        pointer = pointer._up
-                    else:
-                        pointer = pointer._left
+                    while (pointer._up is None):
+                        if pointer == self.left_up:
+
+                            new_ninf = self._def_ninf()
+                            new_pinf = self._def_pinf()
+                            new_ninf._right = new_pinf
+                            new_pinf._left = new_ninf
+
+                            new_ninf._down = self.left_up
+                            self.left_up._up = new_ninf
+                            new_pinf._down = self.right_up
+                            self.right_up._up = new_pinf
+
+                            self.left_up = new_ninf
+                            self.right_up = new_pinf
+
+                            self._h += 1
+                            print "h = ", self._h
+                            self.list.append([])
+
+                        else:
+                            pointer = pointer._left
+
+                    pointer = pointer._up
 
 
 def test():
@@ -116,6 +112,7 @@ def test():
     skip_list.add(4)
     skip_list.add(5)
     skip_list.add(6)
+    print skip_list.list
 
 
 test()
