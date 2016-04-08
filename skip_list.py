@@ -1,4 +1,6 @@
 import random
+
+
 class SkipList(object):
 
     class Item(object):
@@ -47,7 +49,7 @@ class SkipList(object):
         pointer = self.left_up
         while True:
             point_r = pointer._right
-            if value > point_r._value:
+            if value >= point_r._value:
                 pointer = point_r
             elif pointer._down is not None:
                 pointer = pointer._down
@@ -62,17 +64,15 @@ class SkipList(object):
         if find is True:
             print "The value is already exist"
         else:
-            pointer_r = pointer._right
             self._n += 1
-            print "n = ", self._n
             self._h = 0
 
             while True:
+                pointer_r = pointer._right
                 item._left = pointer
                 item._right = pointer_r
                 pointer._right = item
                 pointer_r._left = item
-                self.list[self._h].append(item._value)
 
                 build_up = random.randrange(2)
                 if build_up == 0:
@@ -95,24 +95,65 @@ class SkipList(object):
                             self.right_up = new_pinf
 
                             self._h += 1
-                            print "h = ", self._h
                             self.list.append([])
 
                         else:
                             pointer = pointer._left
-
                     pointer = pointer._up
+
+                    new_item = self.Item(value)
+                    new_item._down = item
+                    item._up = new_item
+                    item = new_item
+
+    def print_all(self):
+        printer = self.left_up
+        left = self.left_up
+        while left._down is not None:
+            while printer._right is not None:
+                print printer._value, ' ',
+                printer = printer._right
+            print ''
+            left = left._down
+            printer = left
+
+        while printer._right is not None:
+            print printer._value, ' ',
+            printer = printer._right
+        print ''
+
+    def _print_item(self):
+        pointer = self.left_up
+        left = self.left_up
+        while left._down is not None:
+            while pointer._right is not None:
+                print pointer, '=', pointer._value, ' ',
+                pointer = pointer._right
+            print ''
+            left = left._down
+            pointer = left
+
+        while pointer._right is not None:
+            print pointer, '=', pointer._value, ' ',
+            pointer = pointer._right
 
 
 def test():
     skip_list = SkipList()
     skip_list.add(1)
     skip_list.add(2)
-    skip_list.add(3)
+    skip_list.add(13)
     skip_list.add(4)
-    skip_list.add(5)
+    skip_list.add(14)
     skip_list.add(6)
-    print skip_list.list
+    skip_list.add(12)
+    skip_list.add(7)
+    skip_list.add(3)
+    skip_list.add(5)
+    skip_list.add(15)
+    skip_list.add(18)
+    print '-' * 25
+    skip_list.print_all()
 
 
 test()
