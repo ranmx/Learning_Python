@@ -88,7 +88,7 @@ class GuidePage(object):
 
 class CourtPage(object):
     def __init__(self, db):
-        self.URL_PAGE = 'http://sh.fang.lianjia.com/'
+        self.URL_PAGE = 'http://sh.fang.lianjia.com'
         self.USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:45.0) Gecko/20100101 Firefox/45.0"
         self.headers = HEADERS
         self.url_list = list()
@@ -150,24 +150,24 @@ class CourtPage(object):
         # info_dict.update({'address': address})
         # info_dict.update({'type': type_con})
         # info_dict.update({'time': when})
-        info_list = [name, int(price), tag_list, distinct, address, type_con, when]
+        info_list = [name, price, tag_list, distinct, address, type_con, when]
         t = tuple(info_list)
         query = ("INSERT INTO lianjia "
                 "(name, price, tag_list, region, address, type_con, open_time) "
                  "VALUES(%s,%s,%s,%s,%s,%s,%s)", t)
         db.exe(query)
-        print name, "is down"
+        print name, "is done"
 
     def run(self):
         thread_pool = []
         for url in self.url_list:
-            print "processing url: ", url
-            t = threading.Thread(target=self._execute, kwargs={'url': url})
-            thread_pool.append(t)
-        for t in thread_pool:
-            t.start()
-        for t in thread_pool:
-            t.join()
+            self._execute(url)
+#            t = threading.Thread(target=self._execute, args=(url, 0))
+# #           thread_pool.append(t)
+#        for t in thread_pool:
+#            t.start()
+#        for t in thread_pool:
+#            t.join()
 
     def _execute(self, url):
         response = self._get_response(url)
@@ -178,7 +178,7 @@ class CourtPage(object):
 
 class MysqlWrapper(object):
     def __init__(self, command=''):
-        self.lock = threading.RLock
+        self.lock = threading.RLock()
         if command != '':
             conn = self._get_conn()
             cur = conn.cursor()
@@ -221,7 +221,7 @@ class MysqlWrapper(object):
 def main():
     # info_list = [name, int(price), tag_list, distinct, address, type_con, when]
     command = ("CREATE TABLE IF NOT EXISTS new_house"
-               "(name TEXT, price INT, tag_list TEXT, region TEXT, "
+               "(name TEXT, price TEXT, tag_list TEXT, region TEXT, "
                "address TEXT, type_con TEXT, open_time TEXT)")
     db = MysqlWrapper(command)
     cp = CourtPage(db)
