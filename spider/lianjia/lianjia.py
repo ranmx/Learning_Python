@@ -7,6 +7,8 @@ import zlib
 import cookielib
 import json
 from bs4 import BeautifulSoup
+import threading
+import MySQLdb
 
 HEADERS = {
     'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:45.0) Gecko/20100101 Firefox/45.0",
@@ -65,25 +67,38 @@ class GuidePage(object):
         return url_list
 
     def get_url(self):
+        threads = []
+        lock = threading.Lock()
         for page in self._get_page_url():
-            response = self._get_response(page)
-            html = self._get_html(response)
-            self.url_list += self._get_url(html)
-            return self.url_list
+            t = threading.Thread(target=self._run, args=(page, lock))
+            threads.append(t)
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        return self.url_list
+
+    def _run(self, page, lock):
+        response = self._get_response(page)
+        html = self._get_html(response)
+        lock.acquire()
+        self.url_list += self._get_url(html)
+        lock.release()
 
 
 class CourtPage(object):
-    def __init__(self):
+    def __init__(self, db):
         self.URL_PAGE = 'http://sh.fang.lianjia.com/'
         self.USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:45.0) Gecko/20100101 Firefox/45.0"
         self.headers = HEADERS
         self.url_list = list()
         self.con_pat = re.compile('(\S+)')
-        pathes = GuidePage().get_url()
-        for path in pathes:
+        self.db = db
+        paths = GuidePage().get_url()
+        for path in paths:
             self.url_list.append(self.URL_PAGE + path)
 
-    def _get_page_url(self, path):
+    def _get_page_url(self):
         return self.url_list.pop()
 
     def _get_response(self, url):
@@ -104,8 +119,8 @@ class CourtPage(object):
             html = zlib.decompress(html, 16+zlib.MAX_WBITS)
         return html
 
-    def _get_feature_dict(self, html):
-        info_dict = {}
+    def _get_feature_dict(self, html, db):
+        # info_dict = {}
         html_soup = BeautifulSoup(html, "lxml")
         box = html_soup.find('div', class_="box-left")
         # --------------------------------------------
@@ -128,38 +143,90 @@ class CourtPage(object):
         for i in range(1, len(type_list)):
             type_con += type_list[i]
         # --------------------------------------------
-        info_dict.update({'name': name})
-        info_dict.update({'price': price})
-        info_dict.update({'tags': tag_list})
-        info_dict.update({'distinct': distinct})
-        info_dict.update({'address': address})
-        info_dict.update({'type': type_con})
-        info_dict.update({'time': when})
-        return info_dict
+        # info_dict.update({'name': name})
+        # info_dict.update({'price': int(price)})
+        # info_dict.update({'tags': tag_list})
+        # info_dict.update({'distinct': distinct})
+        # info_dict.update({'address': address})
+        # info_dict.update({'type': type_con})
+        # info_dict.update({'time': when})
+        info_list = [name, int(price), tag_list, distinct, address, type_con, when]
+        t = tuple(info_list)
+        query = ("INSERT INTO lianjia "
+                "(name, price, tag_list, region, address, type_con, open_time) "
+                 "VALUES(%s,%s,%s,%s,%s,%s,%s)", t)
+        db.exe(query)
+        print name, "is down"
 
-    def test(self):
+    def run(self):
+        thread_pool = []
         for url in self.url_list:
-            print url
-            response = self._get_response(url)
-            if response:
-                html = self._get_html(response)
-                dict = self._get_feature_dict(html)
-                for key in dict.keys():
-                    print key, ' = ', dict[key]
-                print '-' * 30
+            print "processing url: ", url
+            t = threading.Thread(target=self._execute, kwargs={'url': url})
+            thread_pool.append(t)
+        for t in thread_pool:
+            t.start()
+        for t in thread_pool:
+            t.join()
+
+    def _execute(self, url):
+        response = self._get_response(url)
+        if response:
+            html = self._get_html(response)
+            self._get_feature_dict(html, self.db)
 
 
+class MysqlWrapper(object):
+    def __init__(self, command=''):
+        self.lock = threading.RLock
+        if command != '':
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute(command)
+            conn.commit()
+            self._conn_close(conn)
 
-def test():
-#    guide_page = GuidePage()
-#    url_list = guide_page.get_url()
-#    file = open('urls.txt', 'w')
-#    for item in url_list:
-#        file.write(item)
-#        print item
-#    file.close()
-    CourtPage().test()
+    def _get_conn(self):
+        cxn = MySQLdb.connect(user='ran', passwd='test1234', db='lianjia')
+        return cxn
+
+    def _conn_close(self, conn=None):
+        if conn is not None:
+            conn.close()
+
+    def conn_trans(func):
+
+        def connection(self, *args, **kwargs):
+            self.lock.acquire()
+            conn = self._get_conn()
+            kwargs['conn'] = conn
+            rs = self.exe(self, *args, **kwargs)
+            self._conn_close(conn)
+            return rs
+
+        return connection
+
+    @conn_trans
+    def exe(self, command, conn=None):
+        cur = conn.cursor()
+        try:
+            cur.execute(command)
+            conn.commit()
+        except Exception, e:
+            print e
+            return -2
+        return 0
 
 
+def main():
+    # info_list = [name, int(price), tag_list, distinct, address, type_con, when]
+    command = ("CREATE TABLE IF NOT EXISTS new_house"
+               "(name TEXT, price INT, tag_list TEXT, region TEXT, "
+               "address TEXT, type_con TEXT, open_time TEXT)")
+    db = MysqlWrapper(command)
+    cp = CourtPage(db)
+    cp.run()
 
-test()
+
+if __name__ == "__main__":
+    main()
