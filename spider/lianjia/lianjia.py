@@ -19,7 +19,8 @@ HEADERS = {
     'Cache-Control': "max-age=0"
 }
 
-sys.setrecursionlimit(10000)
+reload(sys)
+
 
 
 class LogIn(object):
@@ -136,7 +137,11 @@ class CourtPage(object):
 
         tag_list = box.find('p', class_="small-tags").text.replace('\n', ' ').strip()
         location = box.find('p', class_="where").text.strip()
-        [distinct, address] = location.split('-')
+        try:
+            [distinct, address] = location.split('-', 1)
+        except ValueError:
+            distinct = 'Null'
+            address = location
         when_block = box.find('p', class_="when").text
         when = re.findall(self.con_pat, when_block)[1]
         type_block = box.find('p', class_="wu-type").text
@@ -152,9 +157,12 @@ class CourtPage(object):
         # info_dict.update({'address': address})
         # info_dict.update({'type': type_con})
         # info_dict.update({'time': when})
-        info_list = [name, price, tag_list, distinct, address, type_con, when]
+        #info_list = [name.encode('gbk'), price.encode('gbk'), tag_list.encode('gbk'),
+        #             distinct.encode('gbk'), address.encode('gbk'), type_con.encode('gbk'), when.encode('gbk')]
+        info_list = [name, price, tag_list,
+                     distinct, address, type_con, when]
         t = tuple(info_list)
-        query = ("INSERT INTO lianjia "
+        query = ("INSERT INTO new_house "
                 "(name, price, tag_list, region, address, type_con, open_time) "
                  "VALUES(%s,%s,%s,%s,%s,%s,%s)", t)
         db.exe(query)
@@ -164,12 +172,12 @@ class CourtPage(object):
         thread_pool = []
         for url in self.url_list:
             self._execute(url)
-#            t = threading.Thread(target=self._execute, args=(url, 0))
-# #           thread_pool.append(t)
-#        for t in thread_pool:
-#            t.start()
-#        for t in thread_pool:
-#            t.join()
+            t = threading.Thread(target=self._execute, args=(url, 0))
+            thread_pool.append(t)
+        for t in thread_pool:
+            t.start()
+        for t in thread_pool:
+            t.join()
 
     def _execute(self, url):
         response = self._get_response(url)
@@ -189,7 +197,7 @@ class MysqlWrapper(object):
             self._conn_close(conn)
 
     def _get_conn(self):
-        cxn = MySQLdb.connect(user='ran', passwd='test1234', db='lianjia')
+        cxn = MySQLdb.connect(user='ran', passwd='test1234', db='lianjia', charset='utf8')
         return cxn
 
     def _conn_close(self, conn=None):
