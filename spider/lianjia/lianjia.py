@@ -19,6 +19,8 @@ HEADERS = {
     'Cache-Control': "max-age=0"
 }
 
+sys.setrecursionlimit(10000)
+
 
 class LogIn(object):
     def __init__(self):
@@ -200,8 +202,9 @@ class MysqlWrapper(object):
             self.lock.acquire()
             conn = self._get_conn()
             kwargs['conn'] = conn
-            rs = self.exe(self, *args, **kwargs)
+            rs = func(self, *args, **kwargs)
             self._conn_close(conn)
+            self.lock.release()
             return rs
 
         return connection
@@ -210,7 +213,7 @@ class MysqlWrapper(object):
     def exe(self, command, conn=None):
         cur = conn.cursor()
         try:
-            cur.execute(command)
+            cur.execute(command[0], command[1])
             conn.commit()
         except Exception, e:
             print e
