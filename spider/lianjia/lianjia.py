@@ -9,6 +9,7 @@ import json
 from bs4 import BeautifulSoup
 import threading
 import MySQLdb
+import eventlet
 
 HEADERS = {
     'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:45.0) Gecko/20100101 Firefox/45.0",
@@ -97,6 +98,7 @@ class CourtPage(object):
         self.url_list = list()
         self.con_pat = re.compile('(\S+)')
         self.db = db
+        self.failed_page = []
         paths = GuidePage().get_url()
         for path in paths:
             self.url_list.append(self.URL_PAGE + path)
@@ -114,12 +116,21 @@ class CourtPage(object):
                 print e.code
             elif hasattr(e, 'reason'):
                 print e.reason
+            if url not in self.failed_page:
+                print "failed url:", url
+                self.failed_page.append(url)
+            else:
+                print "failed twice:", url
+                self.failed_page.remove(url)
 
     def _get_html(self, response):
         html = response.read()
         gzipped = response.headers.get('Content-Encoding')
         if gzipped:
-            html = zlib.decompress(html, 16+zlib.MAX_WBITS)
+            try:
+                html = zlib.decompress(html, 16+zlib.MAX_WBITS)
+            except zlib.error:
+                return None
         return html
 
     def _get_feature_dict(self, html, db):
@@ -131,16 +142,17 @@ class CourtPage(object):
         price_box = box.find('p', class_="jiage").find_all('span')
         try:
             unit = price_box[2].text
-            price = price_box[1].text + unit
-        except IndexError:
-            price = 'TBD'
+            price = int(price_box[1].text)
+        except (IndexError, ValueError):
+            price = None
+            unit = None
 
         tag_list = box.find('p', class_="small-tags").text.replace('\n', ' ').strip()
         location = box.find('p', class_="where").text.strip()
         try:
             [distinct, address] = location.split('-', 1)
         except ValueError:
-            distinct = 'Null'
+            distinct = None
             address = location
         when_block = box.find('p', class_="when").text
         when = re.findall(self.con_pat, when_block)[1]
@@ -149,41 +161,32 @@ class CourtPage(object):
         type_con = str()
         for i in range(1, len(type_list)):
             type_con += type_list[i]
+
         # --------------------------------------------
-        # info_dict.update({'name': name})
-        # info_dict.update({'price': int(price)})
-        # info_dict.update({'tags': tag_list})
-        # info_dict.update({'distinct': distinct})
-        # info_dict.update({'address': address})
-        # info_dict.update({'type': type_con})
-        # info_dict.update({'time': when})
-        #info_list = [name.encode('gbk'), price.encode('gbk'), tag_list.encode('gbk'),
-        #             distinct.encode('gbk'), address.encode('gbk'), type_con.encode('gbk'), when.encode('gbk')]
-        info_list = [name, price, tag_list,
+        info_list = [name, price, unit, tag_list,
                      distinct, address, type_con, when]
         t = tuple(info_list)
-        query = ("INSERT INTO new_house "
-                "(name, price, tag_list, region, address, type_con, open_time) "
-                 "VALUES(%s,%s,%s,%s,%s,%s,%s)", t)
-        db.exe(query)
+        query = ("INSERT INTO new_house1 "
+                "(name, price, unit, tag_list, region, address, type_con, open_time) "
+                 "VALUES(%s,%s,%s,%s,%s,%s,%s,%s)", t)
+        db.exe(query, 1)
         print name, "is done"
 
     def run(self):
-        thread_pool = []
+        pool = eventlet.GreenPool(10)
         for url in self.url_list:
-            self._execute(url)
-            t = threading.Thread(target=self._execute, args=(url, 0))
-            thread_pool.append(t)
-        for t in thread_pool:
-            t.start()
-        for t in thread_pool:
-            t.join()
+            pool.spawn(self._execute, url=url)
+        pool.waitall()
+        for url in self.failed_page:
+            pool.spawn(self._execute, url=url)
+        pool.waitall()
 
     def _execute(self, url):
         response = self._get_response(url)
         if response:
             html = self._get_html(response)
-            self._get_feature_dict(html, self.db)
+            if html:
+                self._get_feature_dict(html, self.db)
 
 
 class MysqlWrapper(object):
@@ -218,11 +221,15 @@ class MysqlWrapper(object):
         return connection
 
     @conn_trans
-    def exe(self, command, conn=None):
+    def exe(self, command, cmd_split=0, conn=None):
         cur = conn.cursor()
         try:
-            cur.execute(command[0], command[1])
-            conn.commit()
+            if cmd_split == 0:
+                cur.execute(command)
+                conn.commit()
+            else:
+                cur.execute(command[0], command[1])
+                conn.commit()
         except Exception, e:
             print e
             return -2
@@ -231,9 +238,17 @@ class MysqlWrapper(object):
 
 def main():
     # info_list = [name, int(price), tag_list, distinct, address, type_con, when]
-    command = ("CREATE TABLE IF NOT EXISTS new_house"
-               "(name TEXT, price TEXT, tag_list TEXT, region TEXT, "
-               "address TEXT, type_con TEXT, open_time TEXT)")
+    command = ("CREATE TABLE IF NOT EXISTS new_house1"
+               "(id INT(16) UNSIGNED NOT NULL AUTO_INCREMENT, "
+               "name TEXT, "
+               "price INT, "
+               "unit TEXT, "
+               "tag_list TEXT, "
+               "region TEXT, "
+               "address TEXT, "
+               "type_con TEXT, "
+               "open_time TEXT, "
+               "PRIMARY KEY(id))")
     db = MysqlWrapper(command)
     cp = CourtPage(db)
     cp.run()
