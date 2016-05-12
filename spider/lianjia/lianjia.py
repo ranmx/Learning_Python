@@ -139,6 +139,7 @@ class CourtPage(object):
         box = html_soup.find('div', class_="box-left")
         # --------------------------------------------
         name = box.find('h1').text
+        # --------------------------------------------
         price_box = box.find('p', class_="jiage").find_all('span')
         try:
             unit = price_box[2].text
@@ -146,29 +147,42 @@ class CourtPage(object):
         except (IndexError, ValueError):
             price = None
             unit = None
-
+        # --------------------------------------------
         tag_list = box.find('p', class_="small-tags").text.replace('\n', ' ').strip()
+        # --------------------------------------------
         location = box.find('p', class_="where").text.strip()
         try:
             [distinct, address] = location.split('-', 1)
         except ValueError:
             distinct = None
             address = location
+        # --------------------------------------------
         when_block = box.find('p', class_="when").text
         when = re.findall(self.con_pat, when_block)[1]
+        # --------------------------------------------
         type_block = box.find('p', class_="wu-type").text
         type_list = re.findall(self.con_pat, type_block)
         type_con = str()
         for i in range(1, len(type_list)):
             type_con += type_list[i]
+        # --------------------------------------------
+        area = str()
+        area_box = html_soup.find_all('div', class_="p11")
+        if area_box is not None:
+            for area_info in area_box:
+                areas = area_info.find_all('span', style=None)
+                for ar in areas:
+                    area += ar.text + '/'
+        else:
+            area = None
 
         # --------------------------------------------
         info_list = [name, price, unit, tag_list,
-                     distinct, address, type_con, when]
+                     distinct, address, type_con, area, when]
         t = tuple(info_list)
-        query = ("INSERT INTO new_house1 "
-                "(name, price, unit, tag_list, region, address, type_con, open_time) "
-                 "VALUES(%s,%s,%s,%s,%s,%s,%s,%s)", t)
+        query = ("INSERT INTO new_house "
+                "(name, price, unit, tag_list, region, address, type_con, area, open_time) "
+                 "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)", t)
         db.exe(query, 1)
         print name, "is done"
 
@@ -238,7 +252,7 @@ class MysqlWrapper(object):
 
 def main():
     # info_list = [name, int(price), tag_list, distinct, address, type_con, when]
-    command = ("CREATE TABLE IF NOT EXISTS new_house1"
+    command = ("CREATE TABLE IF NOT EXISTS new_house"
                "(id INT(16) UNSIGNED NOT NULL AUTO_INCREMENT, "
                "name TEXT, "
                "price INT, "
@@ -247,6 +261,7 @@ def main():
                "region TEXT, "
                "address TEXT, "
                "type_con TEXT, "
+               "area TEXT, "
                "open_time TEXT, "
                "PRIMARY KEY(id))")
     db = MysqlWrapper(command)
@@ -256,3 +271,14 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+"""
+SELECT *
+FROM new_house
+WHERE price IS NOT NULL
+AND unit!="万/套起"
+AND tag_list LIKE "%地铁%"
+OR tag_list LIKE "%轨%"
+AND price < 40000
+ORDER BY price
+"""
